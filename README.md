@@ -1,114 +1,76 @@
-# Web3-Based NGO Donation Platform with AI-Enhanced Verification
+# Transparent NGO Donation Management System
 
-A transparent charitable donation platform built on Ethereum. It aims to solve the "Oracle Problem" in philanthropy by using a hybrid architecture where on-chain fund release is controlled by an AI-assisted audit of off-chain vendor invoices.
+A prototype donation-management platform that combines an Ethereum smart-contract workflow with invoice document extraction and AI-assisted review. Donors can explore causes; administrators can manage milestones, review invoices, and initiate vendor payouts.
 
-## 🚀 Overview
+> **Project status:** Prototype for local development / demonstration. The current backend uses JSON files for application state and exposes administrative routes without authentication. It is not suitable for handling real donations or financial credentials without further security work.
 
-This project is a prototype demonstrating how decentralized smart contracts can interface with real-world documents using AI. 
-- **Donors** can browse causes and pledge funds.
-- **NGO Admins** upload invoices for milestones.
-- **The System** runs OCR on the invoice and uses Google Gemini to verify the claimed amount against the document.
-- **Platform Admins** vote to approve the AI's findings.
-- **Smart Contracts** queue the payout and record the attestation on-chain.
+## Features implemented
 
-## 🛠️ Technology Stack
+- Cause and milestone creation, with milestone-to-invoice association.
+- Invoice upload through the Express API.
+- Text extraction using Tesseract.js for images and `pdf-parse` for PDFs.
+- Gemini-assisted comparison of the claimed invoice amount with extracted invoice details.
+- Invoice and verification bundle uploads through Pinata/IPFS helpers.
+- Two-vote approval quorum in the backend invoice flow.
+- Solidity contracts for cause/donation records, invoice attestations, and time-locked treasury payouts.
+- React/Vite pages for donor, cause, invoice, transparency, and administrator workflows.
 
-- **Frontend**: React.js, Vite, Ethers.js
-- **Backend**: Node.js, Express.js
-- **Blockchain**: Solidity, Ethereum (Localhost / Sepolia), Hardhat
-- **AI/ML**: Google Gemini 1.5 Flash
-- **Storage**: IPFS (Pinata)
-- **OCR**: Tesseract.js (Images), pdf-parse (PDFs)
-- **Database**: Local JSON persistence (Prototype)
+## Architecture
 
-## 🏗️ Architecture
+| Layer | Implementation |
+|---|---|
+| Web client | React, Vite, ethers.js |
+| API | Node.js, Express, Multer |
+| Document processing | Tesseract.js, pdf-parse |
+| AI review | Google Gemini API |
+| Off-chain file storage | Pinata / IPFS integration |
+| Smart contracts | Solidity 0.8.24, Hardhat, ethers.js |
+| Application persistence | Local JSON files in the backend |
 
-1. **Upload**: Admin uploads an invoice via the React frontend.
-2. **Text Extraction**: The Express backend uses Tesseract.js/pdf-parse to extract raw text.
-3. **AI Verification**: The text is sent to Google Gemini, which acts as a financial auditor to find the claimed amount and returns a credibility score.
-4. **Storage**: The invoice and metadata are pinned to IPFS via Pinata.
-5. **Governance**: Admins vote on the backend dashboard.
-6. **Execution**: Upon a 2-vote quorum, the backend attests the AI decision to the `InvoiceVerifier` smart contract and queues a payout in the `Treasury` contract.
+The invoice path is: upload → OCR/PDF text extraction → Gemini review → IPFS upload → backend invoice record → administrator votes → contract attestation and payout queue. The `Treasury` contract enforces a one-minute timelock.
 
-## ⚙️ Installation & Setup
+## Repository layout
 
-### Prerequisites
-- Node.js (v18+)
-- MetaMask Browser Extension
-- Alchemy/Infura RPC URL
-- Google Gemini API Key
-- Pinata API Keys
+- `frontend/` — Vite React application.
+- `backend/` — Express API, invoice flow, OCR, Gemini, IPFS helpers, and JSON data.
+- `contracts/` — Solidity contracts, including `Treasury.sol`, `InvoiceVerifier.sol`, and `DonationRegistry.sol`.
+- `scripts/` — Hardhat deployment scripts.
+- `test/` — Hardhat tests; the checked-in test is currently the generated `Lock` example, not a complete business-flow test suite.
 
-### 1. Backend Setup
+## Run locally
 
-```bash
-cd backend
-npm install
-```
+Requirements: Node.js 18+, npm, a browser wallet such as MetaMask, and API credentials for the integrations you intend to use.
 
-Create a `.env` file in the `backend` directory:
-```env
-RPC_URL="http://127.0.0.1:8545" # Or Sepolia RPC
-PRIVATE_KEY="YOUR_ADMIN_WALLET_PRIVATE_KEY"
-GEMINI_API_KEY="YOUR_GOOGLE_GEMINI_API_KEY"
-PINATA_API_KEY="YOUR_PINATA_API_KEY"
-PINATA_SECRET_API_KEY="YOUR_PINATA_SECRET"
-```
+1. Install root Hardhat dependencies: `npm install`.
+2. Install client dependencies: `cd frontend && npm install`.
+3. Install API dependencies: `cd backend && npm install`.
+4. Start a local chain in a terminal: `npx hardhat node`.
+5. Deploy the contracts from the repository root: `npx hardhat run scripts/deploy_all_project.js --network localhost`.
+6. Configure contract addresses and API credentials in the backend environment.
+7. Start the API: `cd backend && node index.js` (port 3000).
+8. Start the web client: `cd frontend && npm run dev` (Vite default port).
 
-### 2. Frontend Setup
+The exact contract addresses must be updated after each local deployment. Do not commit `.env` files or wallet private keys.
 
-```bash
-cd frontend
-npm install
-```
+## API routes observed in the backend
 
-### 3. Smart Contracts (Local Testing)
+- `GET /config`
+- `POST /causes`, `POST /milestones`
+- `POST /invoice`
+- `POST /invoice/:id/vote`, `POST /invoice/:id/reject`
+- `POST /payout/:id/execute`
+- `POST /donate-sync`
+- `GET /invoices`, `GET /admin/dashboard`
 
-Open a terminal and start a local Hardhat node:
-```bash
-npx hardhat node
-```
-In another terminal, deploy the contracts:
-```bash
-npx hardhat run scripts/deploy_all_project.js --network localhost
-```
-*Note: Update the backend and frontend configurations with the deployed contract addresses.*
+## Important limitations and follow-up work
 
-## 🚀 Running the Application
+- Backend routes currently have no authentication or authorization middleware; vote identity is supplied by the request body.
+- Cause, milestone, and invoice state is stored in local JSON files, not a transactional database.
+- The backend enables permissive CORS and does not yet demonstrate robust upload size/type validation.
+- The contract timelock means payout execution cannot succeed immediately after queueing. The current API exposes a manual execution route.
+- Root and backend `npm test` scripts are placeholders; the checked-in Hardhat test is not an end-to-end donation/invoice test.
+- The conversion from INR to ETH in the invoice flow is a fixed demonstration rate. It must not be treated as a live exchange-rate feed.
 
-**Start the Backend:**
-```bash
-cd backend
-node index.js
-```
+## License
 
-**Start the Frontend:**
-```bash
-cd frontend
-npm run dev
-```
-Access the application at `http://localhost:5173`.
-
-## ⚠️ Limitations & Known Issues
-- **Authentication**: The backend API currently lacks authentication (e.g., JWT). Admin voting routes are open and rely on frontend trust.
-- **Database**: Uses local JSON files (`data/causes.json`) for persistence rather than a production database.
-- **Timelock**: The `Treasury.sol` contract enforces a 1-minute timelock. The backend attempts to execute the payout immediately after queueing, which will fail (caught safely). Execution must currently be done manually after the timelock expires.
-- **Deployment**: Currently configured primarily for local development (Hardhat node), though Sepolia deployment is possible.
-
-## 🔮 Future Improvements
-- Migrate from local JSON to a robust database like MongoDB.
-- Implement Web3 Wallet Signatures for secure admin API authentication.
-- Create a cron job / event listener for automated payout execution post-timelock.
-- Add comprehensive automated unit and integration tests.
-
-## 👥 Contributors
-- **Vijay Narayan Raikar** (RVCE)
-- **Tarun R** (RVCE)
-- **Suhas Shetti** (RVCE)
-- **Nandini C** (RVCE)
-- **K Y Hemalatha** (RVCE)
-
-**Mentor**: Prof. Jayanthi P N
-
-## 📄 License
-MIT License
+See the repository files for the applicable license and third-party component terms.
